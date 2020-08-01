@@ -1,10 +1,11 @@
-import AllCNN
+from SqueezeNet import SqueezeNet
 
 import os
 import sys
-import time
+from time import time
 import numpy as np
 import tensorflow as tf
+import pickle
 
 from tensorflow import data
 from tensorflow.keras.callbacks import LearningRateScheduler, CSVLogger
@@ -143,7 +144,7 @@ class SaveModelStateCallback(tf.keras.callbacks.Callback):
         self.epoch_time_end = time()
 
     def on_epoch_begin(self, epoch, logs=None):
-        self.model.save(model_path + "checkpoint{}".format(epoch))
+        self.model.save(model_path + "checkpoint{}.h5".format(epoch))
         self.epoch_time_start = time()
         self.times.append(time() - self.epoch_time_end)
 
@@ -159,7 +160,7 @@ model_state = SaveModelStateCallback()
 # Start from checkpoint weights, if it exists
 # old_jobid = 12123214
 # old_chkpt_num = 4
-# model.load_weights("model_data" + "/" + old_jobid + "/checkpoint{}".format(old_chkpt_num)
+# model = models.load_model("model_data" + "/" + old_jobid + "/checkpoint{}.h5".format(old_chkpt_num))
 
 # SGD optimizer
 sgd = tf.keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=False)
@@ -170,17 +171,21 @@ top5_acc.__name__ = 'top5_acc'
 
 
 with strategy.scope():
-    model = AllCNN.All_CNN()
+    model = SqueezeNet(1000)
     model.compile(loss=tf.keras.losses.categorical_crossentropy, optimizer=sgd, metrics=[top5_acc])
+
 start = time()
 
-history = model.fit(trainData, epochs=100, batch_size=64, verbose=2,
+history = model.fit(trainData, epochs=10, batch_size=64, verbose=2,
                     validation_data=valData, callbacks=[model_state,csv_logger])
 end = time()
 
 epoch_times = model_state.times
 
 np.savetxt(model_path + jobid + 'epoch_training_times.csv', epoch_times, delimiter=',')
+
+with open(model_path + jobid + 'trainHistoryDict', 'wb') as file_pi:
+    pickle.dump(history.history, file_pi)
 
 print("Training time is: " + str(end - start))
 score = model.evaluate(valData, batch_size=128)

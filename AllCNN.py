@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Conv2D, GlobalAveragePooling2D
 
-def All_CNN():
+def AllCNN():
     model = Sequential()
 
     # Define initializers
@@ -27,6 +27,7 @@ def All_CNN():
     # 2nd Convolutional Layer
     model.add(Conv2D(filters=96, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu',
                      kernel_initializer=glorotInit, kernel_regularizer=l2Reg, bias_initializer=constantInit))
+    model.add(Dropout(0.2))
 
     # 3rd Convolutional Layer
     model.add(Conv2D(filters=96, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu',
@@ -37,6 +38,7 @@ def All_CNN():
     # 4th Convolutional Layer
     model.add(Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), padding='same', activation='relu',
                      kernel_initializer=glorotInit, kernel_regularizer=l2Reg, bias_initializer=constantInit))
+    model.add(Dropout(0.2))
 
     # 5th Convolutional Layer
     model.add(Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu',
@@ -51,6 +53,7 @@ def All_CNN():
     # 7th Convolutional Layer
     model.add(Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu',
                      kernel_initializer=glorotInit, kernel_regularizer=l2Reg, bias_initializer=constantInit))
+    model.add(Dropout(0.2))
 
     # 8th Convolutional Layer
     model.add(Conv2D(filters=384, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu',
@@ -65,6 +68,7 @@ def All_CNN():
     # 10th Convolutional Layer
     model.add(Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu',
                      kernel_initializer=glorotInit, kernel_regularizer=l2Reg, bias_initializer=constantInit))
+    model.add(Dropout(0.2))
 
     # 11th Convolutional Layer
     model.add(Conv2D(filters=1024, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu',
@@ -73,6 +77,7 @@ def All_CNN():
     # 12th Convolutional Layer
     model.add(Conv2D(filters=1000, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu',
                      kernel_initializer=glorotInit, kernel_regularizer=l2Reg, bias_initializer=constantInit))
+
 
     # Global average pooling
     model.add(GlobalAveragePooling2D())
