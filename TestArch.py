@@ -10,6 +10,7 @@ import pickle
 from tensorflow import data
 from tensorflow.keras.callbacks import LearningRateScheduler, CSVLogger
 from functools import partial
+from tensorflow.keras.preprocessing.image import DirectoryIterator, ImageDataGenerator
 
 np.random.seed(1000)
 
@@ -108,15 +109,21 @@ def process_val_image(path):
 
 
 # Create datasets
-trainData = data.Dataset.list_files(trainDirectory + '*/*.JPEG')\
-    .prefetch(tf.data.experimental.AUTOTUNE)\
-    .map(process_train_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
-    .batch(128)
+#trainData = data.Dataset.list_files(trainDirectory + '*/*.JPEG')\
+#    .prefetch(tf.data.experimental.AUTOTUNE)\
+#    .map(process_train_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
+#    .batch(128)
 
-valData = data.Dataset.list_files(valDirectory + '*/*.JPEG')\
-    .prefetch(tf.data.experimental.AUTOTUNE)\
-    .map(process_val_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
-    .batch(256)
+#valData = data.Dataset.list_files(valDirectory + '*/*.JPEG')\
+#    .prefetch(tf.data.experimental.AUTOTUNE)\
+#    .map(process_val_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
+#    .batch(256)
+
+dataGen = ImageDataGenerator()
+trainData = DirectoryIterator(trainDirectory,dataGen,target_size=(224, 224))
+
+
+valData = DirectoryIterator(valDirectory, dataGen, target_size=(224, 224))
 
 # Create a MirroredStrategy.
 strategy = tf.distribute.MirroredStrategy()
