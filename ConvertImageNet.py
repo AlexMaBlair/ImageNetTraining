@@ -48,10 +48,10 @@ def preprocessDir(dirName):
 
             if (height > width):
                 image = tf.image.resize(image, (height/width * 224,224), method=tf.image.ResizeMethod.BICUBIC, preserve_aspect_ratio=True)
-                image = tf.image.crop_to_bounding_box(image, int((height/width * 224 - 224) // 2), 0, 224, 224)
+                image = tf.image.crop_to_bounding_box(image, round((height/width * 224 - 224) / 2), 0, 224, 224)
             elif (height < width):
                 image = tf.image.resize(image, (224,width/height * 224), method=tf.image.ResizeMethod.BICUBIC, preserve_aspect_ratio=True)
-                image = tf.image.crop_to_bounding_box(image, 0, int((width/height * 224 - 224) // 2), 224, 224)
+                image = tf.image.crop_to_bounding_box(image, 0, round((width/height * 224 - 224) / 2), 224, 224)
 
 
             #image = tf.keras.preprocessing.image.smart_resize(image, (224,224), interpolation='bicubic')
