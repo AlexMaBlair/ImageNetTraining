@@ -1,5 +1,3 @@
-from SqueezeNet import SqueezeNet
-
 import os
 import sys
 from time import time
@@ -10,13 +8,20 @@ import pickle
 from tensorflow import data
 from tensorflow.keras.callbacks import LearningRateScheduler, CSVLogger
 from functools import partial
+from tensorflow.keras.preprocessing.image import DirectoryIterator, ImageDataGenerator
+
+from tensorflow.keras.applications import MobileNetV2
+
 
 np.random.seed(1000)
 
 jobid = sys.argv[1]
 # Directory of the images, will need to replace this as necessary
-trainDirectory = '/tmp/' + jobid + '/ramdisk/imagenet12/images/train/'
-valDirectory = '/tmp/' + jobid + '/ramdisk/imagenet12/images/sortedVal/'
+# trainDirectory = '/tmp/' + jobid + '/ramdisk/imagenet12/images/train/'
+# valDirectory = '/tmp/' + jobid + '/ramdisk/imagenet12/images/sortedVal/'
+
+trainDirectory = 'Images/train/'
+valDirectory = 'Images/val/'
 
 # Get a list of directories where their indices act as labels
 cats = tf.convert_to_tensor(os.listdir(trainDirectory))
@@ -106,31 +111,86 @@ def process_val_image(path):
 
     return img, label
 
+def datasetFromDirectory(directory, batch_size, size):
+    """Return a dataset flowed from a directory with basic preprocessing."""
+    # Create lists of labels and image paths
+    indexLabel = -1
+    images = []
+    labels = []
+    for root, _, files in os.walk(directory):
+        # Skip empty directories
+        if len(files) == 0:
+            continue
+
+        indexLabel += 1
+        labels += [indexLabel]*len(files)
+        filePaths = [os.path.join(root, fname) for fname in files]
+        images += filePaths
+
+    # Convert image paths to tensor
+    images = tf.convert_to_tensor(images)
+    # Convert labels to onehot
+    labels = tf.one_hot(labels, indexLabel+1)
+
+    # Create dataset
+    ds = tf.data.Dataset.from_tensor_slices((images, labels))
+
+    # Shuffle entire dataset and cache it all
+    ds = ds.shuffle(len(images)).cache()
+
+    # Batch dataset
+    ds = ds.batch(batch_size)
+
+    # Image preprocess
+    def preprocess(imgPaths, labels):
+        # Load images
+        def _loadRead(imgPath):
+            imageFile = tf.io.read_file(imgPath)
+            image = tf.image.decode_image(imageFile, channels=3)
+            # TODO: Use tfrecords to preprocess with smart_resize.
+            image = tf.image.resize_with_crop_or_pad(image,
+                                                     target_height=size[0],
+                                                     target_width=size[0])
+
+            return image
+
+        # Note that parallel iterations can be increased to load more images
+        images = tf.map_fn(_loadRead, imgPaths, parallel_iterations=64,
+                           dtype=tf.uint8)
+
+        # Preprocess image
+        images = tf.cast(images, tf.float32)
+        images = tf.keras.applications.mobilenet_v2.preprocess_input(images)
+
+        return images, labels
+
+    ds = ds.map(preprocess, num_parallel_calls=4)
+
+    # Add prefetching
+    ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+
+    return ds
 
 # Create datasets
-trainData = data.Dataset.list_files(trainDirectory + '*/*.JPEG')\
-    .prefetch(tf.data.experimental.AUTOTUNE)\
-    .map(process_train_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
-    .batch(128)
+# trainData = data.Dataset.list_files(trainDirectory + '*/*.JPEG')\
+#     .prefetch(tf.data.experimental.AUTOTUNE)\
+#     .map(process_train_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
+#     .batch(128)
 
-valData = data.Dataset.list_files(valDirectory + '*/*.JPEG')\
-    .prefetch(tf.data.experimental.AUTOTUNE)\
-    .map(process_val_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
-    .batch(256)
+# valData = data.Dataset.list_files(valDirectory + '*/*.JPEG')\
+#     .prefetch(tf.data.experimental.AUTOTUNE)\
+#     .map(process_val_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
+#     .batch(256)
+
+#dataGen = ImageDataGenerator(preprocessing_function=preprocess_input)
+#trainData = DirectoryIterator(trainDirectory,dataGen,target_size=(224, 224))
+#valData = DirectoryIterator(valDirectory, dataGen, target_size=(224, 224))
+
+trainData = datasetFromDirectory(trainDirectory, batch_size=128, size=(224, 224))
+valData = datasetFromDirectory(valDirectory, batch_size=128, size=(224, 224))
 
 # Create a MirroredStrategy.
 strategy = tf.distribute.MirroredStrategy()
-
-
-# Learning rate scheduler
-#def scheduler(epoch):
-#    if epoch < 5:
-#        return 0.001
-#    else:
-#        return 0.00001
-
-
-# lrcallback = LearningRateScheduler(scheduler)
 
 # Callback to save model at beginning of every epoch in case of failure
 model_path = "model_data" + "/" + jobid + "/"
@@ -152,18 +212,31 @@ class SaveModelStateCallback(tf.keras.callbacks.Callback):
         self.epoch_time_end = time()
         self.times.append(time() - self.epoch_time_start)
 
+# Learning rate scheduler
+def scheduler(epoch, lr):
+    decay_rate = 0.7
+    decay_step = 6
+    if epoch % decay_step == 0 and epoch:
+        return lr * decay_rate
+    return lr
+
+lrcallback = LearningRateScheduler(scheduler)
+
 # Saving history in case of failure
 csv_logger = CSVLogger(model_path + jobid + "_model_history_log.csv", append=True)
 
 model_state = SaveModelStateCallback()
 
-# Start from checkpoint weights, if it exists
-# old_jobid = 12123214
-# old_chkpt_num = 4
-# model = models.load_model("model_data" + "/" + old_jobid + "/checkpoint{}.h5".format(old_chkpt_num))
+# Callbacks
+callbacks_list = [lrcallback, csv_logger, model_state]
+
+
 
 # SGD optimizer
-sgd = tf.keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=False)
+# sgd = tf.keras.optimizers.SGD(lr=0.01, momentum=0.9, nesterov=False)
+
+# Adam optimizer
+adam = tf.keras.optimizers.Adam(lr = 0.001)
 
 # Get top 5 accuracy data instead of just accuracy
 top5_acc = partial(tf.keras.metrics.top_k_categorical_accuracy, k=5)
@@ -171,13 +244,13 @@ top5_acc.__name__ = 'top5_acc'
 
 
 with strategy.scope():
-    model = SqueezeNet(1000)
-    model.compile(loss=tf.keras.losses.categorical_crossentropy, optimizer=sgd, metrics=[top5_acc])
+    model = MobileNetV2(input_shape=(224,224,3), weights=None)
+    model.compile(loss=tf.keras.losses.categorical_crossentropy, optimizer=adam, metrics=[top5_acc])
 
 start = time()
 
-history = model.fit(trainData, epochs=10, batch_size=64, verbose=2,
-                    validation_data=valData, callbacks=[model_state,csv_logger])
+history = model.fit(trainData, epochs=100, batch_size=128, verbose=2,
+                    validation_data=valData, callbacks=callbacks_list)
 end = time()
 
 epoch_times = model_state.times
