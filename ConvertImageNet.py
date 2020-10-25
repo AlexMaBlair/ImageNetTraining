@@ -3,6 +3,7 @@ import sys
 import csv
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 jobid = sys.argv[1]
 # Subdirectory names of the images, easier to manipulate fo
@@ -47,11 +48,11 @@ def preprocessDir(dirName):
             height, width, channels = tf.shape(image)
 
             if (height > width):
-                image = tf.image.resize(image, (height/width * 224,224), method=tf.image.ResizeMethod.BICUBIC, preserve_aspect_ratio=True)
-                image = tf.image.crop_to_bounding_box(image, round((height/width * 224 - 224) / 2), 0, 224, 224)
+                image = tf.image.resize(image, (height/width * 224,224), method=tf.image.ResizeMethod.BICUBIC)
+                image = tf.image.crop_to_bounding_box(image, int((height/width * 224 - 224) / 2), 0, 224, 224)
             elif (height < width):
-                image = tf.image.resize(image, (224,width/height * 224), method=tf.image.ResizeMethod.BICUBIC, preserve_aspect_ratio=True)
-                image = tf.image.crop_to_bounding_box(image, 0, round((width/height * 224 - 224) / 2), 224, 224)
+                image = tf.image.resize(image, (224,width/height * 224), method=tf.image.ResizeMethod.BICUBIC)
+                image = tf.image.crop_to_bounding_box(image, 0, int((width/height * 224 - 224) / 2), 224, 224)
 
 
             #image = tf.keras.preprocessing.image.smart_resize(image, (224,224), interpolation='bicubic')
