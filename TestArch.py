@@ -248,6 +248,7 @@ top5_acc.__name__ = 'top5_acc'
 
 with strategy.scope():
     model = MobileNetV2(input_shape=(224,224,3), weights=None)
+    #tf.keras.models.load_model('checkpoint')
     model.compile(loss=tf.keras.losses.categorical_crossentropy, optimizer=adam, metrics=[top5_acc])
 
 start = time()

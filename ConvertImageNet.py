@@ -3,16 +3,15 @@ import sys
 import csv
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
-jobid = sys.argv[1]
+#jobid = sys.argv[1]
 # Subdirectory names of the images, easier to manipulate fo
 trainDirectoryName = 'train/'
 valDirectoryName = 'sortedVal/'
 
 def preprocessDir(dirName):
-    dir = '/tmp/' + jobid + '/ramdisk/imagenet12/images/' + dirName
-    #dir = 'Images/' + dirName
+    #dir = '/tmp/' + jobid + '/ramdisk/imagenet12/images/' + dirName
+    dir = 'Images/' + dirName
 
     if os.path.exists('processed.csv'):
         with open('processed.csv') as f:
@@ -30,8 +29,8 @@ def preprocessDir(dirName):
         if root in processed:
             continue
 
-        newRoot = '/scratch/maa2/processed/ramdisk/imagenet12/images/' + dirName + os.path.basename(os.path.normpath(root))
-        #newRoot = 'Preprocessed/' + root
+        #newRoot = '/tmp/' + jobid + '/ramdisk/preprocessed/imagenet12/images/' + dirName + os.path.basename(os.path.normpath(root))
+        newRoot = 'Preprocessed/' + root
         if not os.path.exists(newRoot):
             os.makedirs(newRoot)
 
@@ -58,6 +57,10 @@ def preprocessDir(dirName):
             #image = tf.keras.preprocessing.image.smart_resize(image, (224,224), interpolation='bicubic')
 
             imgArr = image.numpy()
+
+            imgArr*=255
+            np.clip(imgArr, 0, 255, out=imgArr)
+            imgArr = imgArr.astype(np.uint8)
 
             # Save in new path
             newPath = os.path.join(newRoot, os.path.splitext(fname)[0])
